@@ -886,7 +886,8 @@ async def _restore_fact_lifecycle(
         return
     await conn.executemany(
         f"UPDATE {fq_table('memory_units')} "
-        f"SET created_at = COALESCE($2, created_at), consolidated_at = $3, consolidation_failed_at = $4 "
+        f"SET created_at = COALESCE($2, created_at), consolidated_at = $3, consolidation_failed_at = $4, "
+        f"updated_at = now() "
         f"WHERE id = $1 AND bank_id = $5",
         [
             (unit_id, created_at, consolidated_at, failed_at, bank_id)
@@ -967,7 +968,8 @@ async def _import_observations(
                     # insert_facts_batch derives event_date for normal writes;
                     # transfer restores the source value carried by the archive.
                     await conn.execute(
-                        f"UPDATE {fq_table('memory_units')} SET event_date = $1 WHERE id = $2 AND bank_id = $3",
+                        f"UPDATE {fq_table('memory_units')} SET event_date = $1, updated_at = now() "
+                        f"WHERE id = $2 AND bank_id = $3",
                         obs.event_date,
                         observation_uuid,
                         bank_id,
@@ -1012,14 +1014,15 @@ async def _link_observation_sources(
             [(observation_id, sid) for sid in dict.fromkeys(source_ids)],
         )
         await conn.execute(
-            f"UPDATE {fq_table('memory_units')} SET proof_count = $1 WHERE id = $2 AND bank_id = $3",
+            f"UPDATE {fq_table('memory_units')} SET proof_count = $1, updated_at = now() "
+            f"WHERE id = $2 AND bank_id = $3",
             proof_count,
             observation_id,
             bank_id,
         )
     else:
         await conn.execute(
-            f"UPDATE {fq_table('memory_units')} SET source_memory_ids = $1, proof_count = $2 "
+            f"UPDATE {fq_table('memory_units')} SET source_memory_ids = $1, proof_count = $2, updated_at = now() "
             f"WHERE id = $3 AND bank_id = $4",
             source_ids,
             proof_count,

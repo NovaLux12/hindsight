@@ -92,6 +92,22 @@ META_METADATA_JSON = "metadata_json"
 META_OBSERVATION_SCOPES = "observation_scopes"
 META_TEXT_SIGNALS = "text_signals"
 META_CREATED_AT = "created_at"
+#: When the memory last changed, and the contract every write path owes it (#3490):
+#: a write that changes what the memory *is* — text, context, dates, fact_type, tags,
+#: metadata, embedding, an observation's sources — stamps ``updated_at``, so a consumer
+#: chasing ``WHERE updated_at > watermark`` (incremental export, cache invalidation, the
+#: mental-model staleness check and its delta refresh) sees the change.
+#:
+#: Consolidation bookkeeping is the one deliberate exception: ``consolidated_at`` and
+#: ``consolidation_failed_at`` are scheduler state rather than the memory, and stamping
+#: them would make every consolidation pass look like an edit to every fact it folded —
+#: re-flagging mental models stale and re-feeding unchanged facts to a delta refresh.
+#: :meth:`MemoriesExtension.mark_consolidated` leaves the column alone, and so do the
+#: requeue sites that clear the markers inline. A store that owns memories itself is
+#: expected to keep the same contract.
+#:
+#: No timestamp can report a hard delete; a consumer that must catch those needs a
+#: content fingerprint, not a watermark.
 META_UPDATED_AT = "updated_at"
 # Observation bookkeeping. `source_memory_ids` is a JSON list: an implementation
 # with no edge relation carries an observation's sources denormalised.
@@ -882,6 +898,9 @@ class MemoriesExtension(Extension, ABC):
 
         ``failed`` stamps the failure marker instead, so a memory the LLM could
         not consolidate is not retried forever.
+
+        This is scheduler state, not an edit: it must leave the memory's
+        ``updated_at`` alone (see :data:`META_UPDATED_AT`).
         """
 
     @abstractmethod
