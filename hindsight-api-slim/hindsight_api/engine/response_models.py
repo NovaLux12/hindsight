@@ -268,7 +268,10 @@ class MemoryFact(BaseModel):
 
             v = json.loads(v)
         if isinstance(v, dict):
-            return {str(k): str(val) for k, val in v.items()}
+            # Drop null-valued keys (issue #3209): retain accepts arbitrary
+            # JSON metadata, and a stored null fails dict[str, str] validation
+            # on every read path that returns MemoryFact.
+            return {str(k): str(val) for k, val in v.items() if val is not None}
         return v
 
     chunk_id: str | None = Field(

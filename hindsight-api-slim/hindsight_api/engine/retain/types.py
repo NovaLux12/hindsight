@@ -66,6 +66,14 @@ class RetainContent:
         None  # Observation scopes
     )
 
+    def __post_init__(self) -> None:
+        # Drop null-valued metadata keys (issue #3209): the retain API accepts
+        # arbitrary JSON metadata, and a null value stored verbatim poisons the
+        # read path, which validates MemoryFact.metadata as dict[str, str].
+        # Non-string values are preserved; the read path coerces them.
+        if self.metadata:
+            self.metadata = {k: v for k, v in self.metadata.items() if v is not None}
+
 
 @dataclass
 class ChunkMetadata:
