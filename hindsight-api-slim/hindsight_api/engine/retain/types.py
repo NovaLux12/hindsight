@@ -11,6 +11,8 @@ from datetime import datetime
 from typing import Literal, TypedDict
 from uuid import UUID
 
+from ..metadata_utils import drop_null_values
+
 logger = logging.getLogger(__name__)
 
 
@@ -70,9 +72,10 @@ class RetainContent:
         # Drop null-valued metadata keys (issue #3209): the retain API accepts
         # arbitrary JSON metadata, and a null value stored verbatim poisons the
         # read path, which validates MemoryFact.metadata as dict[str, str].
-        # Non-string values are preserved; the read path coerces them.
-        if self.metadata:
-            self.metadata = {k: v for k, v in self.metadata.items() if v is not None}
+        # Non-string values are preserved; the read path coerces them. An
+        # explicit ``"metadata": null`` in the request normalizes to {} so the
+        # field always matches its declared type.
+        self.metadata = drop_null_values(self.metadata)
 
 
 @dataclass

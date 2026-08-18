@@ -12,6 +12,7 @@ from typing import Any
 
 from ...config import _get_raw_config
 from ..memory_engine import fq_table
+from ..metadata_utils import drop_null_values
 from .bank_utils import DEFAULT_DISPOSITION, create_bank_vector_indexes
 from .fact_extraction import _sanitize_text
 from .types import ProcessedFact
@@ -423,6 +424,12 @@ async def update_memory_units_metadata_and_tags(
     current document tags and metadata so its optimized result matches a full
     replace.
 
+    ``metadata`` arrives as the raw retain_params bag (the document row keeps
+    the caller's input verbatim), so null-valued keys are dropped here — the
+    same normalization ``RetainContent`` applies to freshly extracted facts
+    (issue #3209). Without it a re-retain would leave surviving units carrying
+    nulls while the units around them do not.
+
     Returns:
         Number of memory units updated.
     """
@@ -449,7 +456,7 @@ async def update_memory_units_metadata_and_tags(
         bank_id,
         document_id,
         tags or [],
-        json.dumps(metadata or {}),
+        json.dumps(drop_null_values(metadata)),
     )
     # result is a status string like "UPDATE 5"
     try:
